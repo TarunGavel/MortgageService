@@ -24,7 +24,13 @@ public class MortgageCheckService {
         this.interestRateRepository = repository;
     }
 
+    /**
+     * Check the mortgage feasibility and calculate the monthly cost.
+     * @param request
+     * @return
+     */
     public MortgageCheckResponse check(MortgageCheckRequest request) {
+        BigDecimal monthlyCost = new BigDecimal("0.00");
         var mortgageRate = interestRateRepository.findByMaturityPeriod(request.maturityPeriod())
                 .orElseThrow(() -> new UnsupportedMaturityPeriodException(
                         request.maturityPeriod(),
@@ -32,8 +38,10 @@ public class MortgageCheckService {
 
         Boolean feasible = isFeasible(request);
         logger.info("Mortgage check done: maturityPeriod {} , feasible {}", mortgageRate.maturityPeriod(), feasible);
-        BigDecimal monthlyCost = monthlyCost(request.loanValue(), mortgageRate.interestRate(), mortgageRate.maturityPeriod());
-
+        if(feasible) {
+            logger.info("Calculating the monthly cost for a feasible mortgage");
+            monthlyCost = monthlyCost(request.loanValue(), mortgageRate.interestRate(), mortgageRate.maturityPeriod());
+        }
         return new MortgageCheckResponse(feasible, monthlyCost);
     }
 

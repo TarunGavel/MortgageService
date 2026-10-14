@@ -2,6 +2,7 @@ package com.web.mortgage.controller;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -24,6 +25,10 @@ public class MortgageCheckControllerTest {
             """
                 {"income" : 100000 , "maturityPeriod" : 20, "loanValue" : 400000.00, "homeValue" : 400000.00}
                     """;
+    private static final String INVALID_REQUEST =
+        """
+         { "income": 60000, "loanValue": 200000, "maturityPeriod": 20 }
+        """;
 
     @Autowired
     private MockMvc mockMvc;
@@ -40,5 +45,27 @@ public class MortgageCheckControllerTest {
                 .andExpect(jsonPath("$.feasible").value(true))
                 .andExpect(jsonPath("$.monthlyCost").value(2402.90));
 
+    }
+
+    @Test
+    void checkMortgageAndReturnNotFeasible() throws Exception {
+        given(mortgageCheckService.check(any()))
+                .willReturn(new MortgageCheckResponse(false, new BigDecimal("0.00")));
+
+        mockMvc.perform(post("/api/mortgage-check").contentType(MediaType.APPLICATION_JSON).content(CHECK_REQUEST))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.feasible").value(false))
+                .andExpect(jsonPath("$.monthlyCost").value(0.00));
+    }
+
+    @Test
+    void checkMortgageReturnsBadRequestWhenValidationFails() throws Exception {
+        mockMvc.perform(post("/api/mortgage-check").contentType(MediaType.APPLICATION_JSON).content(INVALID_REQUEST))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.message").value("Validation failed"))
+                .andExpect(jsonPath("$.errors.homeValue").exists());
+
+        verifyNoInteractions(mortgageCheckService);
     }
 }
